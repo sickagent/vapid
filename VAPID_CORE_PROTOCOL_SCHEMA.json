@@ -1,0 +1,782 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vapid-protocol.org/schemas/core/v1.0.0-draft/schema.json",
+  "title": "VAPID Core Protocol Schema",
+  "description": "JSON Schema bundle for the VAPID Core Protocol v1.0.0-draft.",
+  "$comment": "This schema covers the minimal interoperable core: Identity Record, Capability Token, Envelope, Artifact Descriptor, and Error Object. Some semantic checks such as issued_at < expires_at must be enforced by protocol logic in addition to schema validation.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/IdentityRecord"
+    },
+    {
+      "$ref": "#/$defs/CapabilityToken"
+    },
+    {
+      "$ref": "#/$defs/Envelope"
+    },
+    {
+      "$ref": "#/$defs/ArtifactDescriptorStandalone"
+    },
+    {
+      "$ref": "#/$defs/ErrorObject"
+    }
+  ],
+  "$defs": {
+    "ProtocolVersion": {
+      "type": "string",
+      "pattern": "^1\\.0(?:\\.\\d+)?$",
+      "description": "Supported VAPID Core Protocol version string."
+    },
+    "AbsoluteUri": {
+      "type": "string",
+      "format": "uri",
+      "minLength": 1,
+      "description": "Absolute URI identifier. URN values are allowed."
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 timestamp."
+    },
+    "Did": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[A-Za-z0-9._:%-]+(?:[:/][A-Za-z0-9._:%-]+)*$",
+      "description": "DID-compatible identifier."
+    },
+    "DidUrl": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[A-Za-z0-9._:%-]+(?:[:/][A-Za-z0-9._:%-]+)*#[A-Za-z0-9._:%-]+$",
+      "description": "DID URL with fragment pointing to a verification method."
+    },
+    "MessageUrn": {
+      "type": "string",
+      "pattern": "^urn:vapid:message:[A-Za-z0-9._:-]+$"
+    },
+    "ArenaUrn": {
+      "type": "string",
+      "pattern": "^urn:vapid:arena:[A-Za-z0-9._:-]+$"
+    },
+    "ArtifactUrn": {
+      "type": "string",
+      "pattern": "^urn:vapid:artifact:[A-Za-z0-9._:-]+$"
+    },
+    "CapabilityUrn": {
+      "type": "string",
+      "pattern": "^urn:vapid:cap:[A-Za-z0-9._:-]+$"
+    },
+    "VapidResource": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "Resource identifier. The action MUST NOT be encoded inside the resource string."
+    },
+    "HashValue": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "SHA-256 digest with explicit prefix."
+    },
+    "MultibaseBase58Btc": {
+      "type": "string",
+      "pattern": "^z[1-9A-HJ-NP-Za-km-z]+$",
+      "description": "Multibase base58btc-encoded value."
+    },
+    "ContentType": {
+      "type": "string",
+      "const": "application/json"
+    },
+    "Action": {
+      "type": "string",
+      "enum": [
+        "read",
+        "write",
+        "execute",
+        "delegate",
+        "audit"
+      ]
+    },
+    "Extensions": {
+      "type": "object",
+      "description": "Namespaced protocol extensions.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+      },
+      "additionalProperties": true
+    },
+    "CriticalExtensions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"
+      },
+      "uniqueItems": true
+    },
+    "Proof": {
+      "type": "object",
+      "required": [
+        "type",
+        "verification_method",
+        "created",
+        "digest",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "Ed25519Signature2026"
+        },
+        "verification_method": {
+          "$ref": "#/$defs/DidUrl"
+        },
+        "created": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "digest": {
+          "$ref": "#/$defs/HashValue"
+        },
+        "value": {
+          "$ref": "#/$defs/MultibaseBase58Btc"
+        }
+      },
+      "additionalProperties": false
+    },
+    "VerificationMethod": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "public_key_multibase",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/DidUrl"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "For Core v1 the baseline-supported value is Ed25519VerificationKey2020."
+        },
+        "public_key_multibase": {
+          "$ref": "#/$defs/MultibaseBase58Btc"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "revoked"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "IdentityService": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "endpoint"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "endpoint": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    },
+    "IdentityRecord": {
+      "type": "object",
+      "required": [
+        "id",
+        "verification_methods",
+        "authentication",
+        "updated_at"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/Did"
+        },
+        "verification_methods": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VerificationMethod"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "authentication": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DidUrl"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "assertion_methods": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DidUrl"
+          },
+          "uniqueItems": true
+        },
+        "key_agreement": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DidUrl"
+          },
+          "uniqueItems": true
+        },
+        "service": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/IdentityService"
+          }
+        },
+        "updated_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Delegation": {
+      "type": "object",
+      "required": [
+        "allowed",
+        "max_depth"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "chain": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Did"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "CapabilityConstraints": {
+      "type": "object",
+      "properties": {
+        "max_calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_data_size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowed_recipients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Did"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "CapabilityToken": {
+      "type": "object",
+      "required": [
+        "capability_id",
+        "issuer",
+        "subject",
+        "resource",
+        "actions",
+        "issued_at",
+        "expires_at",
+        "proof"
+      ],
+      "properties": {
+        "capability_id": {
+          "$ref": "#/$defs/CapabilityUrn"
+        },
+        "issuer": {
+          "$ref": "#/$defs/Did"
+        },
+        "subject": {
+          "$ref": "#/$defs/Did"
+        },
+        "resource": {
+          "$ref": "#/$defs/VapidResource"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "issued_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "arena_scope": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArenaUrn"
+          },
+          "uniqueItems": true
+        },
+        "audience": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Did"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Did"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
+        },
+        "constraints": {
+          "$ref": "#/$defs/CapabilityConstraints"
+        },
+        "delegation": {
+          "$ref": "#/$defs/Delegation"
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        },
+        "proof": {
+          "$ref": "#/$defs/Proof"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Body": {
+      "type": "object",
+      "required": [
+        "schema",
+        "content_type",
+        "data"
+      ],
+      "properties": {
+        "schema": {
+          "$ref": "#/$defs/AbsoluteUri"
+        },
+        "content_type": {
+          "$ref": "#/$defs/ContentType"
+        },
+        "data": true
+      },
+      "additionalProperties": false
+    },
+    "Authorization": {
+      "type": "object",
+      "required": [
+        "actor",
+        "capabilities"
+      ],
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/Did"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CapabilityToken"
+          },
+          "minItems": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArtifactLocator": {
+      "type": "string",
+      "format": "uri"
+    },
+    "Lineage": {
+      "type": "object",
+      "properties": {
+        "parent_artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactUrn"
+          },
+          "uniqueItems": true
+        },
+        "source_messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MessageUrn"
+          },
+          "uniqueItems": true
+        },
+        "transformation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "additionalProperties": false
+    },
+    "EncryptionHint": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "minLength": 1
+        },
+        "key_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "iv": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "algorithm"
+      ],
+      "additionalProperties": false
+    },
+    "ArtifactDescriptor": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "created_by",
+        "created_at",
+        "media_type",
+        "hash",
+        "size",
+        "locators",
+        "proof"
+      ],
+      "properties": {
+        "protocol_version": {
+          "$ref": "#/$defs/ProtocolVersion"
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactUrn"
+        },
+        "arena_id": {
+          "$ref": "#/$defs/ArenaUrn"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "created_by": {
+          "$ref": "#/$defs/Did"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hash": {
+          "$ref": "#/$defs/HashValue"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "locators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactLocator"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lineage": {
+          "$ref": "#/$defs/Lineage"
+        },
+        "retention_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "encryption": {
+          "$ref": "#/$defs/EncryptionHint"
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        },
+        "proof": {
+          "$ref": "#/$defs/Proof"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArtifactDescriptorStandalone": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/ArtifactDescriptor"
+        },
+        {
+          "required": [
+            "protocol_version"
+          ]
+        }
+      ]
+    },
+    "ErrorObject": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "details": {
+          "type": "object"
+        },
+        "related_message_id": {
+          "$ref": "#/$defs/MessageUrn"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ArtifactFetchRequest": {
+      "type": "object",
+      "required": [
+        "artifact_id"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ArtifactUrn"
+        },
+        "locator_preference": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "Envelope": {
+      "type": "object",
+      "required": [
+        "protocol_version",
+        "kind",
+        "message_id",
+        "timestamp",
+        "sender",
+        "body",
+        "proof"
+      ],
+      "properties": {
+        "protocol_version": {
+          "$ref": "#/$defs/ProtocolVersion"
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^(task\\.request|task\\.result|artifact\\.publish|artifact\\.fetch|system\\.heartbeat|system\\.error|[a-z0-9]+(?:[.-][a-z0-9]+)+\\.[a-z0-9]+)$"
+        },
+        "message_id": {
+          "$ref": "#/$defs/MessageUrn"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "sender": {
+          "$ref": "#/$defs/Did"
+        },
+        "recipients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Did"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "arena_id": {
+          "$ref": "#/$defs/ArenaUrn"
+        },
+        "expires_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "correlation_id": {
+          "$ref": "#/$defs/MessageUrn"
+        },
+        "parent_message_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MessageUrn"
+          },
+          "uniqueItems": true
+        },
+        "authorization": {
+          "$ref": "#/$defs/Authorization"
+        },
+        "body": {
+          "$ref": "#/$defs/Body"
+        },
+        "extensions": {
+          "$ref": "#/$defs/Extensions"
+        },
+        "critical_extensions": {
+          "$ref": "#/$defs/CriticalExtensions"
+        },
+        "proof": {
+          "$ref": "#/$defs/Proof"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "critical_extensions"
+            ]
+          },
+          "then": {
+            "required": [
+              "extensions"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "system.error"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/Body"
+                  },
+                  {
+                    "properties": {
+                      "data": {
+                        "$ref": "#/$defs/ErrorObject"
+                      }
+                    },
+                    "required": [
+                      "data"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "artifact.publish"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/Body"
+                  },
+                  {
+                    "properties": {
+                      "data": {
+                        "$ref": "#/$defs/ArtifactDescriptor"
+                      }
+                    },
+                    "required": [
+                      "data"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "artifact.fetch"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "body": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/Body"
+                  },
+                  {
+                    "properties": {
+                      "data": {
+                        "$ref": "#/$defs/ArtifactFetchRequest"
+                      }
+                    },
+                    "required": [
+                      "data"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}
